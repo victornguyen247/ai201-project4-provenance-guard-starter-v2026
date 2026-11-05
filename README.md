@@ -54,18 +54,27 @@
 ### Signal one — the model signal
 
 **What it measures:**
+How predictable the text is to a local language model (`gpt2`). The raw measure is **perplexity** — how surprised the model is by each next token. `detector.model_signal` maps that onto 0–1 where **higher means more likely AI** (low perplexity → high score). Midpoint for a coin-flip is perplexity 45.
 
 **Why that might differ between human and AI writing:**
+A model writes by repeatedly picking a likely next word, so model-written text tends to be text a model finds easy to predict. Human writing wanders more — odd word choices, abrupt turns, the specific rather than the typical — so it usually has higher perplexity.
 
 **What it can't see:**
+Predictability is not authorship. It rewards common words in short, ordinary sentences — so plainly written human text (second-language writers, younger writers, anyone writing simply on purpose) can score as machine-like. The reverse also fails: dense prose full of rare words often scores as *human*, because rare words are what the model fails to predict. Formality alone does not decide it.
 
 ### Signal two — the style signal
 
 **What it measures:**
+The *shape* of the text, not its meaning — three surface measures combined in `stylometry.style_signal` into a 0–1 score (**higher = more likely AI**):
+- `sentence_length_spread` — how much sentence length varies
+- `type_token_ratio` — how much of the vocabulary is unique vs repeated
+- `punctuation_density` — how much (and how varied) the punctuation is
 
 **Why that might differ between human and AI writing:**
+Generated prose tends toward even, mid-length sentences and a narrower band of vocabulary, because that is what "most likely next word" produces on average. Human writing is lumpier — a three-word sentence next to a forty-word one, more varied word choice, messier punctuation habits.
 
 **What it can't see:**
+This signal cannot read. Anything that changes the shape without changing the substance moves it — adding typos, breaking up sentences, pasting in a quotation. That is cheap to do on purpose, which is exactly the kind of move unit 8's attack set will use.
 
 ### The combining rule
 
@@ -73,8 +82,10 @@
      signals disagree? -->
 
 **The rule:**
+Weighted average of the two signals. Both already point the same way (higher = more AI-ish), so disagreement lands near the middle — treated as uncertainty rather than letting either signal veto the other. Equal weight for now: neither signal is trusted enough alone (model blind-spots plain humans; style is easy to game).
 
 **The numbers:**
+`0.5 × model_signal + 0.5 × style_signal` (`WEIGHT_MODEL_SIGNAL = 0.5`, `WEIGHT_STYLE_SIGNAL = 0.5` in `config.py`).
 
 **Where it lives:** `scoring.py::combine_signals`
 
@@ -82,8 +93,7 @@
      somewhere else, say where. -->
 
 **A case where my two signals split, and what my rule does with it:**
-
-
+Plain, conventional human writing — short ordinary sentences, common words, but with uneven sentence lengths. The model signal can score high (predictable → AI-ish); the style signal can score lower (lumpy lengths → human-ish). Equal weights pull the combined score toward ~0.5, into the unsure band, instead of letting the model signal alone accuse the writer.
 
 ---
 
