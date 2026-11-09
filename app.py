@@ -213,6 +213,9 @@ def submit():
     content_id = str(uuid.uuid4())
 
     import detector
+    import scoring
+    import stylometry
+
     try:
         model_score = detector.model_signal(text)
     except ValueError as exc:
@@ -220,11 +223,13 @@ def submit():
     except detector.DetectorUnavailable as exc:
         return jsonify({"error": "detector_unavailable", "message": str(exc)}), 503
 
-    # Milestone 3: real model_score only. confidence / label / style wait for 4–5.
+    style_score = stylometry.style_signal(text)
+    combined_score = scoring.combine_signals(model_score, style_score)
+
+    # Milestone 4: both signals + combined. Real guess/label come in Milestone 5.
     guess = "pending"
-    confidence = 0.0
     label = "pending"
-    style_score = None
+    confidence = round(float(combined_score), 4)
 
     audit.log_decision(
         content_id=content_id,
@@ -232,6 +237,7 @@ def submit():
         guess=guess,
         model_score=model_score,
         style_score=style_score,
+        combined_score=combined_score,
         label=label,
     )
 
@@ -242,6 +248,7 @@ def submit():
         "label": label,
         "model_score": model_score,
         "style_score": style_score,
+        "combined_score": combined_score,
     }), 200
 
 
