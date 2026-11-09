@@ -224,12 +224,12 @@ def submit():
         return jsonify({"error": "detector_unavailable", "message": str(exc)}), 503
 
     style_score = stylometry.style_signal(text)
-    combined_score = scoring.combine_signals(model_score, style_score)
-
-    # Milestone 4: both signals + combined. Real guess/label come in Milestone 5.
-    guess = "pending"
-    label = "pending"
-    confidence = round(float(combined_score), 4)
+    combined_score = round(
+        float(scoring.combine_signals(model_score, style_score)),
+        4,
+    )
+    guess, label = scoring.score_to_label(combined_score)
+    confidence = combined_score
 
     audit.log_decision(
         content_id=content_id,
@@ -273,13 +273,44 @@ def appeal():
     wrong accusation and nothing at all.
     """
     payload = request.get_json(silent=True) or {}
+    content_id = payload.get("content_id")
+    reasoning = payload.get("reasoning")
+
+    if not isinstance(content_id, str) or not content_id.strip():
+        return jsonify({
+            "error": "bad_request",
+            "message": "content_id is required.",
+        }), 400
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        return jsonify({
+            "error": "bad_request",
+            "message": "reasoning is required.",
+        }), 400
+
+    prior = audit.entries_for(content_id)
+    if not prior:
+        return jsonify({
+            "error": "not_found",
+            "message": "No submission found for that content_id.",
+        }), 404
+
+    creator_id = next(
+        (e.get("creator_id") for e in prior if e.get("creator_id")),
+        "unknown",
+    )
+    entry = audit.log_appeal(
+        content_id=content_id,
+        creator_id=creator_id,
+        reasoning=reasoning.strip(),
+    )
 
     # TODO: delete this and build the route.
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /appeal isn't built yet — see the TODO in app.py.",
-        "you_sent": payload,
-    }), 501
+        "ok": True,
+        "content_id": content_id,
+        "status": entry["status"],
+        "message": "Your appeal was recorded and this item is under review.",
+    }), 200
 
 
 # ── Already works ─────────────────────────────────────────────────────────────

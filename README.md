@@ -106,14 +106,12 @@ Plain, conventional human writing — short ordinary sentences, common words, bu
 
 | Label | Score range | The exact text a reader sees |
 |---|---|---|
-| high-confidence human |  |  |
-| unsure |  |  |
-| high-confidence AI |  |  |
+| high-confidence human | 0.00 – 0.35 | We think this was probably written by a person. |
+| unsure | 0.35 – 0.65 | We're not sure who wrote this — it could be a person, AI, or a mix of both. |
+| high-confidence AI | 0.65 – 1.00 | We think this was probably written with AI help. |
 
 **Why I worded the "unsure" one this way:**
-<!-- It's the hardest of the three. It has to admit uncertainty without
-     sounding like an accusation, because the person reading it may well have
-     written every word themselves. -->
+It names the uncertainty without accusing anyone. A writer who did the work themselves should hear "we don't know," not "we suspect you cheated." Saying it could be a person, AI, or both also matches how the two signals can disagree.
 
 
 
@@ -134,33 +132,66 @@ Plain, conventional human writing — short ordinary sentences, common words, bu
 ```bash
 $ curl -X POST http://127.0.0.1:5000/submit \
   -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+  -d "{\"text\": \"The implementation of the proposed framework requires careful consideration of several key factors. First, it is important to note that the system must be able to handle a wide variety of different inputs. Additionally, the overall performance of the solution depends on a number of important variables. It is also essential to ensure that the approach remains consistent across cases.\", \"creator_id\": \"ms5-ai\"}"
 ```
 
 ```json
-
+{
+  "content_id": "c93c18e8-439d-4fab-8d91-dd908e2e305d",
+  "guess": "ai",
+  "confidence": 0.7582,
+  "label": "We think this was probably written with AI help.",
+  "model_score": 0.8801,
+  "style_score": 0.6363,
+  "combined_score": 0.7582
+}
 ```
+
+(All three labels are reachable. Examples from the same run: human `combined_score` 0.2001 → “We think this was probably written by a person.”; unsure `combined_score` 0.5836 → “We're not sure who wrote this — it could be a person, AI, or a mix of both.”)
 
 **An appeal**
 
 ```bash
 $ curl -X POST http://127.0.0.1:5000/appeal \
   -H "Content-Type: application/json" \
-  -d '{"content_id": "...", "reasoning": "..."}'
+  -d "{\"content_id\": \"c93c18e8-439d-4fab-8d91-dd908e2e305d\", \"reasoning\": \"I wrote every word myself. The short sentences are just how I draft.\"}"
 ```
 
 ```json
-
+{
+  "ok": true,
+  "content_id": "c93c18e8-439d-4fab-8d91-dd908e2e305d",
+  "status": "under_review",
+  "message": "Your appeal was recorded and this item is under review."
+}
 ```
 
 **What the log shows afterwards**
 
-```bash
-$ curl "http://127.0.0.1:5000/log?limit=3"
-```
+Entries for that `content_id` (decision, then appeal):
 
 ```json
-
+[
+  {
+    "timestamp": "2026-11-09T03:59:41+00:00",
+    "content_id": "c93c18e8-439d-4fab-8d91-dd908e2e305d",
+    "creator_id": "ms5-ai",
+    "guess": "ai",
+    "model_score": 0.8801,
+    "style_score": 0.6363,
+    "combined_score": 0.7582,
+    "label": "We think this was probably written with AI help.",
+    "status": "decided"
+  },
+  {
+    "timestamp": "2026-11-09T03:59:41+00:00",
+    "content_id": "c93c18e8-439d-4fab-8d91-dd908e2e305d",
+    "creator_id": "ms5-ai",
+    "event": "appeal",
+    "status": "under_review",
+    "reasoning": "I wrote every word myself. The short sentences are just how I draft."
+  }
+]
 ```
 
 ---
