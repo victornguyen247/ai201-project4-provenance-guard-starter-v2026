@@ -39,7 +39,13 @@
 <!-- The path a submission takes, from arriving to the label a reader sees.
      Six or seven steps — this is the trace you wrote in Milestone 1. -->
 
-
+1. A writer sends `POST /submit` with JSON `{"text": "...", "creator_id": "..."}`.
+2. The route refuses missing/empty text with HTTP 400 instead of scoring junk.
+3. Signal one runs: `detector.model_signal(text)` scores how predictable the text is (higher → more AI-ish).
+4. Signal two runs: `stylometry.style_signal(text)` scores the shape of the writing — sentence-length spread, vocabulary variety, punctuation density (higher → more AI-ish).
+5. `scoring.combine_signals` averages the two scores 50/50 into one combined score.
+6. `scoring.score_to_label` turns that number into a short `guess` (`human` / `unsure` / `ai`) and a full-sentence label a reader can understand.
+7. The decision is written to `logs/audit.jsonl` and returned in the JSON response. If the writer disagrees, `POST /appeal` records their reasoning and sets status to `under_review`.
 
 ---
 
@@ -200,15 +206,15 @@ Entries for that `content_id` (decision, then appeal):
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Help finishing Milestone 3 on `/submit` — pull the payload, call `detector.model_signal`, log with `audit.log_decision`, and leave confidence/label as placeholders.
+- *What came back:* A full route that validated input, called the model signal, logged a decision, and returned JSON. It also sketched catching detector failures as HTTP 503.
+- *What I changed:* Kept the validation and logging shape, but made sure only `model_score` was “real” at that step and that placeholders stayed placeholders until later milestones — so a broken signal wouldn’t be confused with a broken route.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Finish Milestone 4 stylometry and then Milestone 5 (`score_to_label`, `/appeal`, README labels/sample run).
+- *What came back:* Implementations for the three style measures and `style_signal`, wiring through `combine_signals`, human-readable label sentences, an `/appeal` handler, and pasted sample curl/log output.
+- *What I changed:* Dropped a non-existent `StylometryUnavailable` handler that would have crashed; made sure `score_to_label`’s `(guess, label)` tuple was unpacked instead of stuffing the tuple into `label`; and checked live that all three labels were actually reachable before trusting the README ranges.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
